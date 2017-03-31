@@ -7,12 +7,12 @@
 
 int main(){
 
-  struct Pair {
-   int   n1;
-   int   n2;
- } info;
-
   int fd[2];
+
+  struct{
+    char string1[6];
+    char string2[6];
+  }info;
 
   if(pipe(fd) < 0)
     perror("Error creating pipe");
@@ -29,15 +29,15 @@ int main(){
       read(fd[READ],&info,sizeof(info));
       close(fd[READ]);
 
-      printf("SUM: %d\n", info.n1 + info.n2);
-      printf("SUB: %d\n", info.n1 - info.n2);
-      printf("MULT: %d\n", info.n1 * info.n2);
+      printf("SUM: %d\n", (int)info.string1 + (int)info.string2);
+      printf("SUB: %d\n", (int)info.string1 - (int)info.string2);
+      printf("MULT: %d\n", (int)info.string1 * (int)info.string2);
 
-      if(info.n2 == 0){
+      if((int)info.string1 == 0){
         printf("Dividend must not be 0!\n");
       }
       else{
-        printf("DIV: %f\n", (float)info.n1 / (float)info.n2);
+        printf("DIV: %f\n", (float)info.string1 / (float)info.string2);
       }
 
       break;
@@ -45,7 +45,7 @@ int main(){
     default: //parent process
       close(fd[READ]);
       printf("Numbers (n1 n2):");
-      scanf("%d %d", &info.n1, &info.n2);
+      scanf("%s %s", &info.string1, &info.string2);
       write(fd[WRITE],&info,sizeof(info));
       close(fd[WRITE]);
   }
