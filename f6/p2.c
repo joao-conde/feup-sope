@@ -6,23 +6,22 @@
 
 
 #define STDERR 2
-#define NUMITER 10000
 
-
-int num_chars = 500;
+int num_chars = 5000;
 
 void * thrfunc(void * arg) {
 
-  int* written_chars = malloc(sizeof(int));
+  int* written_chars = (int*)malloc(sizeof(int));
 
   fprintf(stderr, "Starting thread %s\n", (char *) arg);
 
   while(1){
     if(num_chars <= 0)
-      return written_chars;
+      return (void*)written_chars;
+
     write(STDERR,arg,1);
     num_chars--;
-    written_chars++;
+    (*written_chars)++;
   }
 
 }
@@ -43,6 +42,8 @@ int main(int argc, char* argv[]){
 
   printf("\nNumber of chars wrriten by t1: %d\n", res_t1);
   printf("\nNumber of chars wrriten by t2: %d\n", res_t2);
+
+
 
   return 0;
 }
