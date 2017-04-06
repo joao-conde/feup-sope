@@ -1,1 +1,0 @@
------EXERCISES OF EACH LECTURE-----
