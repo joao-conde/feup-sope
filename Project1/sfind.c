@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <ctype.h>
 #include <string.h>
 #include <unistd.h>
 #include <dirent.h>
@@ -25,8 +26,24 @@ struct Flags{
 
 void sigint_handler(int signo){
 
-  printf("CTR C PRESSED\n");
-  //kill(getpid(),SIGQUIT);
+  char terminate;
+
+  kill(getppid(),SIGSTOP);
+
+  printf("CTR+C PRESSED: DO YOU WISH TO TERMINATE?\n");
+  scanf("%s",&terminate);
+
+  kill(getpid(),SIGSTOP);
+  terminate = (char)toupper(terminate);
+
+  if(terminate == 'N'){
+    kill(getpid(),SIGCONT);
+    kill(getppid(),SIGCONT);
+  }
+  else{
+    kill(getpid(),SIGQUIT);
+    kill(getppid(),SIGQUIT);
+  }
 
 }
 
@@ -77,7 +94,7 @@ void searchDir(char* path){
   pid_t pid;
 
   subscribe_SIGINT(); //ctrl+C interruption
-  sleep(4);
+  //sleep(4); uncomment to test CTR C
 
   if(stat(path,&fileStatus) != 0)
     printf("stat error\n");
@@ -130,8 +147,8 @@ void searchDir(char* path){
             searchDir(newPath);
             break;
 
-          default:
-              waitpid(pid,NULL,WNOHANG);
+          /*default:
+              waitpid(pid,NULL,WNOHANG);*/
 
         }
       }
