@@ -30,19 +30,19 @@ void sigint_handler(int signo){
 
   kill(getppid(),SIGSTOP);
 
-  printf("CTR+C PRESSED: DO YOU WISH TO TERMINATE?\n");
+  printf("\n> DO YOU WISH TO TERMINATE?\n");
   scanf("%s",&terminate);
 
-  kill(getpid(),SIGSTOP);
+  //kill(getpid(),SIGSTOP);
   terminate = (char)toupper(terminate);
 
   if(terminate == 'N'){
-    kill(getpid(),SIGCONT);
     kill(getppid(),SIGCONT);
+    //kill(getpid(),SIGCONT);
   }
   else{
-    kill(getpid(),SIGQUIT);
     kill(getppid(),SIGQUIT);
+    kill(getpid(),SIGQUIT);
   }
 
 }
@@ -94,7 +94,8 @@ void searchDir(char* path){
   pid_t pid;
 
   subscribe_SIGINT(); //ctrl+C interruption
-  //sleep(4); uncomment to test CTR C
+  sleep(4);
+  //uncomment to test CTR C
 
   if(stat(path,&fileStatus) != 0)
     printf("stat error\n");
