@@ -3,6 +3,8 @@
 #include <string.h>
 #include <unistd.h>
 #include <dirent.h>
+#include <signal.h>
+#include <wait.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 
@@ -20,6 +22,24 @@ struct Flags{
 
 } flags;
 
+
+void sigint_handler(int signo){
+
+  printf("CTR C PRESSED\n");
+  //kill(getpid(),SIGQUIT);
+
+}
+
+void subscribe_SIGINT(){
+
+  struct sigaction act;
+  act.sa_handler = sigint_handler;
+  act.sa_flags = 0;
+  sigemptyset(&act.sa_mask);
+
+  sigaction(SIGINT,&act,NULL);
+
+}
 
 void processArgs(int argc, char* argv[]){
 
@@ -54,11 +74,10 @@ void searchDir(char* path){
   struct stat fileStatus;
   struct dirent *fileEntry;
   DIR* dp;
+  pid_t pid;
 
-
-
-  //  process files
-  //printf("path: %s\n\n", path);
+  subscribe_SIGINT(); //ctrl+C interruption
+  sleep(4);
 
   if(stat(path,&fileStatus) != 0)
     printf("stat error\n");
@@ -68,28 +87,41 @@ void searchDir(char* path){
     if((dp = opendir(path)) == NULL)
       printf("Error opendir\n");
 
-      char newPath[256];
+    char newPath[256];
 
     while((fileEntry = readdir(dp)) != NULL){
-
-      strcpy(newPath,path);
 
       if(strcmp(fileEntry->d_name,".") == 0 || strcmp(fileEntry->d_name, "..") == 0){
         continue;
       }
 
+      strcpy(newPath,path);
       strcat(newPath,"/");
       strcat(newPath,fileEntry->d_name);
-      //printf("new path: %s\n\n", newPath);
       stat(newPath,&fileStatus);
 
       if(S_ISREG(fileStatus.st_mode)){
-        printf("%s\n",newPath);
+
+        if(flags.print == 1){
+          if(*(flags.type) == 'f'){
+            printf("%s\n", newPath);
+          }
+          else{
+            if(strcmp(flags.name, fileEntry->d_name) == 0){
+                printf("%s\n",newPath);
+            }
+          }
+        }
       }
 
       if(S_ISDIR(fileStatus.st_mode)){
-        printf("%s\n",newPath);
-        switch(fork()){
+
+        if(flags.print == 1){
+          if(*(flags.type) == 'd')
+            printf("%s\n", newPath);
+        }
+
+        switch(pid = fork()){
           case -1:
             printf("Error fork()...\n");
             break;
@@ -98,11 +130,14 @@ void searchDir(char* path){
             searchDir(newPath);
             break;
 
+          default:
+              waitpid(pid,NULL,WNOHANG);
+
         }
       }
 
     }
-    printf("LUL: %s\n", newPath);
+
     closedir(dp);
 
 
@@ -110,15 +145,18 @@ void searchDir(char* path){
   //  process dir (call searchDir again lulz)
 }
 
+
 int main(int argc, char* argv[]){
 
-  char* path = NULL;
+  char* path = getcwd(NULL,256);
+
+
 
   processArgs(argc,argv);
 
 
 
-  path = getcwd(path,256);
+  //path = getcwd(path,256);
   printf("initial path: %s\n\n", path);
   searchDir(path);
 
