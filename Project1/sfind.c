@@ -11,18 +11,13 @@
 
 
 struct Flags{
-
   char* name;
   char* type;
   int mode;
-
   int print;
   int delete;
-
-  //falta ainda o exec lul fuk lulz
-
+  //TODO: -exec command.
 } flags;
-
 
 void sigint_handler(int signo){
 
@@ -66,22 +61,12 @@ void processArgs(int argc, char* argv[]){
   flags.print = 0;
   flags.delete = 0;
 
-  for(int i = 0; i < argc; i++){
-
-    if(strcmp(argv[i],"-name") == 0)
-      flags.name = argv[i+1];
-
-    if(strcmp(argv[i],"-type") == 0)
-      flags.type = argv[i+1];
-
-    if(strcmp(argv[i],"-perm") == 0)
-      flags.mode = strtoul(argv[i+1],NULL,8);
-
-    if(strcmp(argv[i],"-print") == 0)
-      flags.print = 1;
-
-    if(strcmp(argv[i],"-delete") == 0)
-      flags.delete = 1;
+  for(size_t i = 0; i < argc; i++){
+    if (strcmp(argv[i],"-name") == 0) flags.name = argv[i+1];
+    if (strcmp(argv[i],"-type") == 0) flags.type = argv[i+1];
+    if (strcmp(argv[i],"-perm") == 0) flags.mode = strtoul(argv[i+1], NULL, 8);
+    if (strcmp(argv[i],"-print") == 0) flags.print = 1;
+    if (strcmp(argv[i],"-delete") == 0) flags.delete = 1;
   }
 
 }
@@ -93,55 +78,44 @@ void searchDir(char* path){
   DIR* dp;
   pid_t pid;
 
-  subscribe_SIGINT(); //ctrl+C interruption
+  subscribe_SIGINT(); //Ctrl+C interruption
   sleep(4);
   //uncomment to test CTR C
 
-  if(stat(path,&fileStatus) != 0)
-    printf("stat error\n");
+  if (stat(path,&fileStatus) != 0) printf("stat error\n");
 
-  if(S_ISDIR(fileStatus.st_mode)){
+  if (S_ISDIR(fileStatus.st_mode)){
 
-    if((dp = opendir(path)) == NULL)
-      printf("Error opendir\n");
+    if ((dp = opendir(path)) == NULL) printf("Error opendir\n");
 
     char newPath[256];
 
-    while((fileEntry = readdir(dp)) != NULL){
+    while ((fileEntry = readdir(dp)) != NULL){
 
-      if(strcmp(fileEntry->d_name,".") == 0 || strcmp(fileEntry->d_name, "..") == 0){
+      //Ignore the current directory and previous directory folders.
+      if (strcmp(fileEntry->d_name, ".") == 0 || strcmp(fileEntry->d_name, "..") == 0){
         continue;
       }
+      //Update the current path.
+      strcpy(newPath, path);
+      strcat(newPath, "/");
+      strcat(newPath, fileEntry->d_name);
+      stat(newPath, &fileStatus);
 
-      strcpy(newPath,path);
-      strcat(newPath,"/");
-      strcat(newPath,fileEntry->d_name);
-      stat(newPath,&fileStatus);
-
-      if(S_ISREG(fileStatus.st_mode)){
-
-        if(flags.print == 1){
-          if(*(flags.type) == 'f'){
+      //Whether the read structure is a file.
+      if (S_ISREG(fileStatus.st_mode)){
+        if (flags.print == 1 && (flags.type == "f" || strcmp(flags.name, fileEntry->d_name) == 0 || flags.mode == fileStatus.st_mode)){
             printf("%s\n", newPath);
-          }
-          else{
-            if(strcmp(flags.name, fileEntry->d_name) == 0){
-                printf("%s\n",newPath);
-            }
-          }
         }
       }
-
-      if(S_ISDIR(fileStatus.st_mode)){
-
-        if(flags.print == 1){
-          if(*(flags.type) == 'd')
+      //Whether the read structure is a directory.
+      if (S_ISDIR(fileStatus.st_mode)){
+        if (flags.print == 1 && flags.type == "d"){
             printf("%s\n", newPath);
         }
-
-        switch(pid = fork()){
+        switch (pid = fork()){
           case -1:
-            printf("Error fork()...\n");
+            perror("Error fork()...\n");
             break;
 
           case 0: //child process
@@ -153,12 +127,8 @@ void searchDir(char* path){
 
         }
       }
-
     }
-
     closedir(dp);
-
-
   }
   //  process dir (call searchDir again lulz)
 }
@@ -166,15 +136,10 @@ void searchDir(char* path){
 
 int main(int argc, char* argv[]){
 
-  char* path = getcwd(NULL,256);
-
-
+  char* path = getcwd(NULL, 256); //Saves the current path.
 
   processArgs(argc,argv);
 
-
-
-  //path = getcwd(path,256);
   printf("initial path: %s\n\n", path);
   searchDir(path);
 
