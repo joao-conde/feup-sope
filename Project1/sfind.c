@@ -104,13 +104,13 @@ void searchDir(char* path){
 
       //Whether the read structure is a file.
       if (S_ISREG(fileStatus.st_mode)){
-        if (flags.print == 1 && (flags.type == "f" || strcmp(flags.name, fileEntry->d_name) == 0 || flags.mode == fileStatus.st_mode)){
+        if (flags.print == 1 && (strcmp(flags.type, "f") == 0 || strcmp(flags.name, fileEntry->d_name) == 0 || flags.mode == fileStatus.st_mode)){
             printf("%s\n", newPath);
         }
       }
       //Whether the read structure is a directory.
       if (S_ISDIR(fileStatus.st_mode)){
-        if (flags.print == 1 && flags.type == "d"){
+        if (flags.print == 1 && strcmp(flags.type, "d")){
             printf("%s\n", newPath);
         }
         switch (pid = fork()){
