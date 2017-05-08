@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <errno.h>
 
 int SAUNA_CAPACITY;
 int RECEIVED_F, RECEIVED_M, REJECTIONS_F, REJECTIONS_M, SERVED_F, SERVED_M;
@@ -21,33 +22,31 @@ typedef struct{
 
 int main(int argc, char* argv[]){
 
-
   if(argc != 2){
-    printf("Wrong number of arguments. USAGE: program_name <max sauna users>\n");
+    printf("Wrong number of arguments! USAGE: sauna <max sauna users>\n");
     exit(-1);
   }
 
-  if(mkfifo(REJECTED_FIFO, O_RDWR) != 0){
+  if(mkfifo(REJECTED_FIFO, O_RDWR) != 0 && errno != EEXIST){
     printf("Error creating REJECTED fifo\n");
     exit(-1);
   }
 
-
   SAUNA_CAPACITY = atoi(argv[1]);
   int fifo_fd;
-  Request* r;
+  Request *r = malloc(sizeof(Request));
 
-  if((fifo_fd = open(GENERATE_FIFO, O_RDONLY)) == -1){
-    printf("Error openning for read GENERATE_FIFO\n");
-    exit(-1);
+  printf("\nSAUNA CAPACITY: %d\n\n", SAUNA_CAPACITY);
+
+  while ((fifo_fd = open(GENERATE_FIFO, O_RDONLY)) == -1){
+    if (errno == ENOENT) printf("No pipe available! Retrying...\n");
+    sleep(1); //Polls every second.
   }
 
+  read(fifo_fd, r, sizeof(Request));
+  if (r == NULL) exit(-1);
 
-  printf("number of sauna spots: %d\n", SAUNA_CAPACITY);
-
-  read(fifo_fd, r , sizeof(r));
-
-  printf("id %d\n", r->id);
+  printf("ID: %d\nGender: %c\nDuration: %d\nDenials: %d\n", r->id, r->gender, r->duration, r->denials);
 
   return 0;
 }
