@@ -43,10 +43,10 @@ int main(int argc, char* argv[]){
     sleep(1); //Polls every second.
   }
 
-  read(fifo_fd, r, sizeof(Request));
-  if (r == NULL) exit(-1);
-
-  printf("ID: %d\nGender: %c\nDuration: %d\nDenials: %d\n", r->id, r->gender, r->duration, r->denials);
+  while(read(fifo_fd, r, sizeof(Request)) != 0){
+    if (r == NULL) exit(-1);
+    printf("ID: %d\nGender: %c\nDuration: %d\nDenials: %d\n", r->id, r->gender, r->duration, r->denials);
+  }
 
   return 0;
 }

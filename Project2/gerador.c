@@ -58,11 +58,10 @@ int main(int argc, char* argv[]){
     }
   }
 
-  Request* r = generateRequest(maxDuration);
-  printf("struct ID: %d\n", r->id);
-  printf("struct gender: %s\n", &r->gender);
+  Request* r;
+  /*printf("struct gender: %s\n", &r->gender);
   printf("struct duration: %d\n", r->duration);
-  printf("struct denials: %d\n", r->denials);
+  printf("struct denials: %d\n", r->denials);*/
 
   /*
   r = generateRequest(maxDuration);
@@ -89,7 +88,12 @@ int main(int argc, char* argv[]){
   printf("struct duration: %d\n", r->duration);
   printf("struct denials: %d\n", r->denials);
   */
-  write(fifo_fd, r, sizeof(*r));
+
+  for(int i = 0; i < requests; i++){
+    r = generateRequest(maxDuration);
+    printf("struct ID: %d\nstruct gender: %s\nstruct duration: %d\nstruct denials: %d\n", r->id, &r->gender, r->duration, r->denials);
+    write(fifo_fd, r, sizeof(*r));
+  }
 
   unlink(GENERATE_FIFO); //This should probably be an exit handler.
 
