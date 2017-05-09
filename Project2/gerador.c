@@ -6,6 +6,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <errno.h>
+#include <pthread.h>
 
 int ID = 1;
 int GENERATED_M, GENERATED_F, REJECTED_M, REJECTED_F, DISCARDED_M, DISCARDED_F;
@@ -19,6 +20,25 @@ typedef struct{
   int duration;
   int denials;
 } Request;
+
+
+void* rejectedListener(void* arg){
+
+  int fifo_fd;
+  Request* r;
+
+  while ((fifo_fd = open(REJECTED_FIFO, O_RDONLY)) == -1){
+    if (errno == ENOENT) printf("No rejected pipe available! Retrying...\n");
+    sleep(2);
+  }
+
+  while(read(fifo_fd, r, sizeof(Request)) != 0){
+    if (r == NULL) exit(-1);
+    printf("REJECTED PIPE\nID: %d\nGender: %c\nDuration: %d\nDenials: %d\n", r->id, r->gender, r->duration, r->denials);
+  }
+
+  write(fifo_fd, r, sizeof(*r));
+}
 
 Request* generateRequest(int maxDuration){
 
@@ -50,6 +70,11 @@ int main(int argc, char* argv[]){
   int fifo_fd;
   time_t t;
   srand((unsigned) time(&t));
+  Request* r;
+  pthread_t tid;
+
+
+  pthread_create(&tid, NULL, rejectedListener, NULL);
 
   while ((fifo_fd = open(GENERATE_FIFO, O_WRONLY | O_NONBLOCK)) == -1){
     if (errno != ENXIO){
@@ -58,12 +83,12 @@ int main(int argc, char* argv[]){
     }
   }
 
-  Request* r;
+
   /*printf("struct gender: %s\n", &r->gender);
   printf("struct duration: %d\n", r->duration);
-  printf("struct denials: %d\n", r->denials);*/
+  printf("struct denials: %d\n", r->denials);
 
-  /*
+
   r = generateRequest(maxDuration);
   printf("struct ID: %d\n", r->id);
   printf("struct gender: %s\n", &r->gender);
@@ -95,7 +120,11 @@ int main(int argc, char* argv[]){
     write(fifo_fd, r, sizeof(*r));
   }
 
+
+
+
+
   unlink(GENERATE_FIFO); //This should probably be an exit handler.
 
-  return 0;
+  pthread_exit(0);
 }
