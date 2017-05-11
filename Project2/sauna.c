@@ -5,6 +5,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <errno.h>
+#include <pthread.h>
 
 int SAUNA_CAPACITY;
 int RECEIVED_F, RECEIVED_M, REJECTIONS_F, REJECTIONS_M, SERVED_F, SERVED_M;
@@ -19,6 +20,30 @@ typedef struct{
   int duration;
   int denials;
 } Request;
+
+void* saunaTicket(void* arg){
+  int duration = *(int*) arg; //Duration of the stay (in milisseconds).
+
+  usleep(duration);
+  pthread_exit(NULL);
+}
+
+void* requestHandler(void* arg){
+  int fifo_fd;
+  Request* r;
+
+  while ((fifo_fd = open(GENERATE_FIFO, O_RDONLY)) == -1){
+    if (errno == ENOENT) printf("No generate pipe available! Retrying...\n");
+  }
+  while(read(fifo_fd, r, sizeof(Request)) != 0){
+    pthread_t ticket_tid;
+    int duration = r->duration; //Duration of the stay (in milisseconds).
+
+    pthread_create(&ticket_tid, NULL, saunaTicket, (void*) &duration);
+  }
+
+  pthread_exit(NULL);
+}
 
 int main(int argc, char* argv[]){
 
