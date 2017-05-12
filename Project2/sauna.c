@@ -7,9 +7,9 @@
 #include <errno.h>
 #include <pthread.h>
 
-int SAUNA_CAPACITY;
-int RECEIVED_F, RECEIVED_M, REJECTIONS_F, REJECTIONS_M, SERVED_F, SERVED_M;
+int SAUNA_CAPACITY, SAUNA_VACANT;
 char SAUNA_GENDER;
+int RECEIVED_F, RECEIVED_M, REJECTIONS_F, REJECTIONS_M, SERVED_F, SERVED_M;
 
 char* GENERATE_FIFO = "/tmp/entrada";
 char* REJECTED_FIFO = "/tmp/rejeitados";
@@ -22,9 +22,12 @@ typedef struct{
 } Request;
 
 void* saunaTicket(void* arg){
-  int duration = *(int*) arg; //Duration of the stay (in milisseconds).
+  Request* r = (Request*) arg;
 
-  usleep(duration);
+  printf("Serving user #%d for %d ms.\n", r->id, r->duration);
+  usleep(r->duration);
+  printf("User #%d leaving sauna.\n", r->id);
+
   pthread_exit(NULL);
 }
 
@@ -35,11 +38,26 @@ void* requestHandler(void* arg){
   while ((fifo_fd = open(GENERATE_FIFO, O_RDONLY)) == -1){
     if (errno == ENOENT) printf("No generate pipe available! Retrying...\n");
   }
-  while(read(fifo_fd, r, sizeof(Request)) != 0){
-    pthread_t ticket_tid;
-    int duration = r->duration; //Duration of the stay (in milisseconds).
 
-    pthread_create(&ticket_tid, NULL, saunaTicket, (void*) &duration);
+  while(read(fifo_fd, r, sizeof(Request)) != 0){
+    pthread_t tid[64]; //Contains every tid.
+    int curr = 0; //The current index.
+
+    Request* request = r;
+
+    if (r->gender == SAUNA_GENDER){
+      if (SAUNA_VACANT > 0){
+        pthread_create(&tid[curr], NULL, saunaTicket, (void*) &request); //Creates a new ticket.
+        SAUNA_VACANT--; //Decrements the available seat counter.
+        curr++;
+      }
+      else{
+      }
+    }
+    else{
+      //TODO: Update denial variable.
+    }
+    printf("ID: %d\nGender: %c\nDuration: %d\nDenials: %d\n", r->id, r->gender, r->duration, r->denials);
   }
 
   pthread_exit(NULL);
@@ -58,20 +76,20 @@ int main(int argc, char* argv[]){
   }
 
   SAUNA_CAPACITY = atoi(argv[1]);
+  SAUNA_VACANT = SAUNA_CAPACITY;
+
   int fifo_fd;
   Request *r = malloc(sizeof(Request));
 
   printf("\nSAUNA CAPACITY: %d\n\n", SAUNA_CAPACITY);
 
-  while ((fifo_fd = open(GENERATE_FIFO, O_RDONLY)) == -1){
-    if (errno == ENOENT) printf("No pipe available! Retrying...\n");
-    sleep(1); //Polls every second.
-  }
+  pthread_t req_tid, ticket_tid;
 
-  while(read(fifo_fd, r, sizeof(Request)) != 0){
-    if (r == NULL) exit(-1);
-    printf("ID: %d\nGender: %c\nDuration: %d\nDenials: %d\n", r->id, r->gender, r->duration, r->denials);
-  }
+  pthread_create(&req_tid, NULL, requestHandler, NULL);
+  pthread_create(&ticket_tid, NULL, saunaTicket, NULL);
+
+  pthread_join(req_tid, NULL);
+  pthread_join(ticket_tid, NULL);
 
   return 0;
 }
