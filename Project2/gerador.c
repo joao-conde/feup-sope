@@ -69,19 +69,13 @@ void* requestsThread(void* arg){
     request->denials = 0;
 
     requestList[i] = request;
-
-    /*gettimeofday(&stop, NULL);
-    long thisInst = ((stop.tv_sec - start.tv_sec) * 1000.0);
-    inst += (stop.tv_usec - start.tv_usec) / 1000.0;
-
-    pid_t thisPID = getpid();*/
   }
+
   for(int i = 0; i < requests; i++){
     Request* r = requestList[i];
-    printf("struct ID: %d\nstruct gender: %s\nstruct duration: %d\nstruct denials: %d\n", r->id, &r->gender, r->duration, r->denials);
+    //printf("struct generated:\nstruct ID: %d\nstruct gender: %s\nstruct duration: %d\nstruct denials: %d\n", r->id, &r->gender, r->duration, r->denials);
     write(fifo_fd, r, sizeof(*r));
   }
-
 
   pthread_exit(NULL);
 }
@@ -108,7 +102,8 @@ void* rejectedListener(void* arg){
 }
 
 int main(int argc, char* argv[]){
-  gettimeofday(&start, NULL); //TODO: Should probably be moved.
+
+  //gettimeofday(&start, NULL); //TODO: Should probably be moved. what is this LUL --conde
 
   //Seed randomization for RNG.
   time_t t;

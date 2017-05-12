@@ -22,32 +22,39 @@ typedef struct{
 } Request;
 
 void* saunaTicket(void* arg){
+
   Request* r = (Request*) arg;
 
   printf("Serving user #%d for %d ms.\n", r->id, r->duration);
-  usleep(r->duration);
+  sleep(r->duration);
   printf("User #%d leaving sauna.\n", r->id);
 
-  pthread_exit(NULL);
+  return NULL;
 }
 
 void* requestHandler(void* arg){
   int fifo_fd;
-  Request* r;
+  Request r;
+  pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
-  while ((fifo_fd = open(GENERATE_FIFO, O_RDONLY)) == -1){
-    if (errno == ENOENT) printf("No generate pipe available! Retrying...\n");
+  while((fifo_fd = open(GENERATE_FIFO, O_RDONLY)) == -1){
+    printf("No generate pipe available! Retrying...\n");
   }
 
-  while(read(fifo_fd, r, sizeof(Request)) != 0){
-    pthread_t tid[64]; //Contains every tid.
+
+  while(read(fifo_fd, &r, sizeof(Request)) != 0){
+    //printf("lul\n");
+    //pthread_t tid[64]; //Contains every tid. Acho que se pode usar sempre o mesmo pq nao vamos precisar de guardar o valor
+    pthread_t tid;
     int curr = 0; //The current index.
 
-    Request* request = r;
+    //critical section controled by a mutex
 
-    if (r->gender == SAUNA_GENDER){
+    pthread_mutex_lock(&mutex);
+    printf("ticket sent\n");
+    if (r.gender == SAUNA_GENDER){
       if (SAUNA_VACANT > 0){
-        pthread_create(&tid[curr], NULL, saunaTicket, (void*) &request); //Creates a new ticket.
+        pthread_create(&tid, NULL, saunaTicket, (void*) &r); //Creates a new ticket.
         SAUNA_VACANT--; //Decrements the available seat counter.
         curr++;
       }
@@ -57,10 +64,11 @@ void* requestHandler(void* arg){
     else{
       //TODO: Update denial variable.
     }
-    printf("ID: %d\nGender: %c\nDuration: %d\nDenials: %d\n", r->id, r->gender, r->duration, r->denials);
+  pthread_mutex_unlock(&mutex);
+    //printf("ID: %d\nGender: %c\nDuration: %d\nDenials: %d\n", r.id, r.gender, r.duration, r.denials);
   }
 
-  pthread_exit(NULL);
+  return NULL;
 }
 
 int main(int argc, char* argv[]){
@@ -78,18 +86,13 @@ int main(int argc, char* argv[]){
   SAUNA_CAPACITY = atoi(argv[1]);
   SAUNA_VACANT = SAUNA_CAPACITY;
 
-  int fifo_fd;
-  Request *r = malloc(sizeof(Request));
 
   printf("\nSAUNA CAPACITY: %d\n\n", SAUNA_CAPACITY);
 
-  pthread_t req_tid, ticket_tid;
-
+  pthread_t req_tid;
   pthread_create(&req_tid, NULL, requestHandler, NULL);
-  pthread_create(&ticket_tid, NULL, saunaTicket, NULL);
 
   pthread_join(req_tid, NULL);
-  pthread_join(ticket_tid, NULL);
 
-  return 0;
+  pthread_exit(NULL);
 }
