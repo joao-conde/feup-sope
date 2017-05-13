@@ -31,12 +31,9 @@ typedef struct{
   int denials;
 } Request;
 
-
 /* REQUEST GENERATOR THREAD */
 void* requestsThread(void* arg){
-
   int requests = *(int*) arg;
-
 
   //Creates the generate pipe.
   if(mkfifo(GENERATE_FIFO, S_IRUSR | S_IWUSR) != 0 && errno != EEXIST){
@@ -69,7 +66,6 @@ void* requestsThread(void* arg){
 }
 
 void* rejectedListener(void* arg){
-
   int fifo_fd;
   Request* r = malloc(sizeof(Request));
 
@@ -79,14 +75,14 @@ void* rejectedListener(void* arg){
   }
 
   while(read(fifo_fd, r, sizeof(Request)) != 0){
-    //printf("REJECTED PIPE\nID: %d\nGender: %c\nDuration: %d\nDenials: %d\n", r->id, r->gender, r->duration, r->denials);
-
+    printf("REJECTED PIPE\nID: %d\nGender: %c\nDuration: %d\nDenials: %d\n", r->id, r->gender, r->duration, r->denials);
     if (r->denials < 3) write(GENERATE_FD, r, sizeof(*r));
     else if (r->gender == 'M') DISCARDED_M++;
     else if (r->gender == 'F') DISCARDED_F++;
+    sleep(1); //Tries to enter every second.
   }
-
   free(r);
+  printf("fds");
   return NULL;
 
 }
