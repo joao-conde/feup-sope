@@ -18,6 +18,8 @@ char* GENERATE_FIFO = "/tmp/entrada";
 char* REJECTED_FIFO = "/tmp/rejeitados";
 char* REGISTRY_MSG;
 
+int GENERATE_FD;
+
 struct timeval start, stop;
 
 typedef enum {REQUESTS, REJECTED, DISCARDED} Tip;
@@ -33,7 +35,6 @@ typedef struct{
 /* REQUEST GENERATOR THREAD */
 void* requestsThread(void* arg){
 
-  int fifo_fd;
   int requests = *(int*) arg;
 
 
@@ -44,7 +45,7 @@ void* requestsThread(void* arg){
   }
 
   //Tries to open the generate pipe.
-  while ((fifo_fd = open(GENERATE_FIFO, O_WRONLY)) == -1){
+  while ((GENERATE_FD = open(GENERATE_FIFO, O_WRONLY)) == -1){
     if (errno != ENXIO){ //errno equals ENXIO if read side hasn't been opened yet.
       perror("Error opening GENERATE_FIFO for write");
       exit(-1);
@@ -61,7 +62,7 @@ void* requestsThread(void* arg){
     request->denials = 0;
 
     //printf("GENERATED STRUCT\nID:%d\nGENDER:%s\nDUR:%d\nDENIALS:%d\n", request->id, &(request->gender), request->duration, request->denials);
-    write(fifo_fd, request, sizeof(Request));
+    write(GENERATE_FD, request, sizeof(Request));
   }
 
   return NULL;
@@ -78,15 +79,15 @@ void* rejectedListener(void* arg){
   }
 
   while(read(fifo_fd, r, sizeof(Request)) != 0){
-    printf("REJECTED PIPE\nID: %d\nGender: %c\nDuration: %d\nDenials: %d\n", r->id, r->gender, r->duration, r->denials);
+    //printf("REJECTED PIPE\nID: %d\nGender: %c\nDuration: %d\nDenials: %d\n", r->id, r->gender, r->duration, r->denials);
 
-    if (r->denials < 3) write(fifo_fd, r, sizeof(*r));
+    if (r->denials < 3) write(GENERATE_FD, r, sizeof(*r));
     else if (r->gender == 'M') DISCARDED_M++;
     else if (r->gender == 'F') DISCARDED_F++;
   }
-  pthread_exit(NULL);
 
   free(r);
+  return NULL;
 
 }
 

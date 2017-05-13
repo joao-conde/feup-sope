@@ -8,6 +8,7 @@
 #include <pthread.h>
 
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t mutex2 = PTHREAD_MUTEX_INITIALIZER;
 
 int SAUNA_CAPACITY, SAUNA_VACANT;
 char SAUNA_GENDER;
@@ -51,11 +52,20 @@ void* saunaTicket(void* arg){
   if(serveUser == 1){
     printf("Serving user #%d, a %s, for %d ms.\n", r->id, &r->gender,r->duration);
     sleep(r->duration);
+
+    pthread_mutex_lock(&mutex2);
+    SAUNA_VACANT++;
+    if(SAUNA_VACANT == SAUNA_CAPACITY)
+      SAUNA_GENDER = 'E';
+    pthread_mutex_unlock(&mutex2);
+
     printf("User #%d leaving sauna.\n", r->id);
   }
 
   return NULL;
 }
+
+
 
 void* requestHandler(void* arg){
   pthread_t tid[64];
@@ -74,13 +84,20 @@ void* requestHandler(void* arg){
   }
 
   while(1){
+
     Request* r = malloc(sizeof(Request));
+
     if(read(fifo_fd, r, sizeof(Request)) == 0)
-      break;
+      continue;
+
 
     pthread_create(&tid[current],NULL,saunaTicket, (void*)r);
     current++;
   }
+
+
+  for(int i = 0; i < sizeof(tid); i++)
+    pthread_join(tid[i],NULL);
 
   return NULL;
 }
