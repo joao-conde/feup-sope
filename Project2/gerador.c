@@ -9,7 +9,6 @@
 #include <pthread.h>
 #include <string.h>
 
-#define MAX_REQUESTS 128
 
 int ID = 1;
 int MAX_DURATION;
@@ -28,10 +27,8 @@ typedef struct{
   char gender;
   int duration;
   int denials;
-  Tip tip;
 } Request;
 
-Request* requestList[MAX_REQUESTS];
 
 /* REQUEST GENERATOR THREAD */
 void* requestsThread(void* arg){
@@ -39,11 +36,6 @@ void* requestsThread(void* arg){
   int fifo_fd;
   int requests = *(int*) arg;
 
-  //Tests whether the number of requests exceeds the array limit.
-  if (requests >= MAX_REQUESTS){
-    printf("Too many requests to generate!\n");
-    exit(-1);
-  }
 
   //Creates the generate pipe.
   if(mkfifo(GENERATE_FIFO, S_IRUSR | S_IWUSR) != 0 && errno != EEXIST){
@@ -52,7 +44,7 @@ void* requestsThread(void* arg){
   }
 
   //Tries to open the generate pipe.
-  while ((fifo_fd = open(GENERATE_FIFO, O_WRONLY | O_NONBLOCK)) == -1){
+  while ((fifo_fd = open(GENERATE_FIFO, O_WRONLY)) == -1){
     if (errno != ENXIO){ //errno equals ENXIO if read side hasn't been opened yet.
       perror("Error opening GENERATE_FIFO for write");
       exit(-1);
@@ -68,26 +60,21 @@ void* requestsThread(void* arg){
     request->duration = rand() % MAX_DURATION + 1;
     request->denials = 0;
 
-    requestList[i] = request;
+    //printf("GENERATED STRUCT\nID:%d\nGENDER:%s\nDUR:%d\nDENIALS:%d\n", request->id, &(request->gender), request->duration, request->denials);
+    write(fifo_fd, request, sizeof(Request));
   }
 
-  for(int i = 0; i < requests; i++){
-    Request* r = requestList[i];
-    //printf("struct generated:\nstruct ID: %d\nstruct gender: %s\nstruct duration: %d\nstruct denials: %d\n", r->id, &r->gender, r->duration, r->denials);
-    write(fifo_fd, r, sizeof(*r));
-  }
-
-  pthread_exit(NULL);
+  return NULL;
 }
 
 void* rejectedListener(void* arg){
 
   int fifo_fd;
-  Request* r;
+  Request* r = malloc(sizeof(Request));
 
   while ((fifo_fd = open(REJECTED_FIFO, O_RDONLY)) == -1){
     if (errno == ENOENT) printf("No rejected pipe available! Retrying...\n");
-    sleep(2);
+    sleep(1);
   }
 
   while(read(fifo_fd, r, sizeof(Request)) != 0){
@@ -98,6 +85,8 @@ void* rejectedListener(void* arg){
     else if (r->gender == 'F') DISCARDED_F++;
   }
   pthread_exit(NULL);
+
+  free(r);
 
 }
 
@@ -135,5 +124,5 @@ int main(int argc, char* argv[]){
 
   unlink(GENERATE_FIFO); //This should probably be an exit handler.
 
-  return 0;
+  pthread_exit(NULL);
 }

@@ -7,12 +7,16 @@
 #include <errno.h>
 #include <pthread.h>
 
+pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+
 int SAUNA_CAPACITY, SAUNA_VACANT;
 char SAUNA_GENDER;
 int RECEIVED_F, RECEIVED_M, REJECTIONS_F, REJECTIONS_M, SERVED_F, SERVED_M;
 
 char* GENERATE_FIFO = "/tmp/entrada";
 char* REJECTED_FIFO = "/tmp/rejeitados";
+
+int REJECTED_FD;
 
 typedef struct{
   int id;
@@ -24,48 +28,58 @@ typedef struct{
 void* saunaTicket(void* arg){
 
   Request* r = (Request*) arg;
+  int serveUser = 0;
 
-  printf("Serving user #%d for %d ms.\n", r->id, r->duration);
-  sleep(r->duration);
-  printf("User #%d leaving sauna.\n", r->id);
+  pthread_mutex_lock(&mutex);
+  if (r->gender == SAUNA_GENDER || SAUNA_GENDER == 'E'){
+    if (SAUNA_VACANT > 0){
+      SAUNA_VACANT--; //Decrements the available seat counter.
+      SAUNA_GENDER = r->gender;
+      serveUser = 1;
+    }
+    else{
+      printf("SAUNA FULL\n");
+    }
+  }
+    else{
+      r->denials++;
+      write(REJECTED_FD, r, sizeof(Request));
+    }
+
+  pthread_mutex_unlock(&mutex);
+
+  if(serveUser == 1){
+    printf("Serving user #%d, a %s, for %d ms.\n", r->id, &r->gender,r->duration);
+    sleep(r->duration);
+    printf("User #%d leaving sauna.\n", r->id);
+  }
 
   return NULL;
 }
 
 void* requestHandler(void* arg){
+  pthread_t tid[64];
+  int current = 0;
   int fifo_fd;
-  Request r;
-  pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
-  while((fifo_fd = open(GENERATE_FIFO, O_RDONLY)) == -1){
-    printf("No generate pipe available! Retrying...\n");
+  while ((fifo_fd = open(GENERATE_FIFO, O_RDONLY)) == -1){
+    if(errno == ENOENT || errno == ENXIO){
+      printf("Retrying...\n");
+      sleep(1);
+    }
+    else {
+      perror("ERROR DESCRIPTION");
+      exit(-1);
+    }
   }
 
+  while(1){
+    Request* r = malloc(sizeof(Request));
+    if(read(fifo_fd, r, sizeof(Request)) == 0)
+      break;
 
-  while(read(fifo_fd, &r, sizeof(Request)) != 0){
-    //printf("lul\n");
-    //pthread_t tid[64]; //Contains every tid. Acho que se pode usar sempre o mesmo pq nao vamos precisar de guardar o valor
-    pthread_t tid;
-    int curr = 0; //The current index.
-
-    //critical section controled by a mutex
-
-    pthread_mutex_lock(&mutex);
-    printf("ticket sent\n");
-    if (r.gender == SAUNA_GENDER){
-      if (SAUNA_VACANT > 0){
-        pthread_create(&tid, NULL, saunaTicket, (void*) &r); //Creates a new ticket.
-        SAUNA_VACANT--; //Decrements the available seat counter.
-        curr++;
-      }
-      else{
-      }
-    }
-    else{
-      //TODO: Update denial variable.
-    }
-  pthread_mutex_unlock(&mutex);
-    //printf("ID: %d\nGender: %c\nDuration: %d\nDenials: %d\n", r.id, r.gender, r.duration, r.denials);
+    pthread_create(&tid[current],NULL,saunaTicket, (void*)r);
+    current++;
   }
 
   return NULL;
@@ -78,13 +92,25 @@ int main(int argc, char* argv[]){
     exit(-1);
   }
 
-  if(mkfifo(REJECTED_FIFO, O_RDWR) != 0 && errno != EEXIST){
+  if(mkfifo(REJECTED_FIFO, S_IRUSR | S_IWUSR) != 0 && errno != EEXIST){
     printf("Error creating REJECTED fifo\n");
     exit(-1);
   }
 
+  while ((REJECTED_FD = open(REJECTED_FIFO, O_WRONLY)) == -1){
+    if(errno == ENOENT || errno == ENXIO){
+      printf("Retrying...\n");
+      sleep(1);
+    }
+    else {
+      perror("ERROR DESCRIPTION");
+      exit(-1);
+    }
+  }
+
   SAUNA_CAPACITY = atoi(argv[1]);
   SAUNA_VACANT = SAUNA_CAPACITY;
+  SAUNA_GENDER = 'E'; //(E)mpty sauna
 
 
   printf("\nSAUNA CAPACITY: %d\n\n", SAUNA_CAPACITY);
