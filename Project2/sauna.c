@@ -9,6 +9,8 @@
 #include <string.h>
 #include <sys/time.h>
 
+#define SEC_TO_NANO 1000000
+
 //Mutex initializer.
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
@@ -42,7 +44,7 @@ void* saunaTicket(void* arg){
   printf("Serving user #%d, a %s, for %d ms.\n", r->id, &r->gender, r->duration);
 
   struct timespec use = {0};
-  use.tv_nsec = r->duration * 1000000;
+  use.tv_nsec = r->duration * SEC_TO_NANO;
   nanosleep(&use, NULL);
 
   pthread_mutex_lock(&mutex); //Enters critical section.
@@ -68,6 +70,7 @@ void* requestHandler(void* arg){
   pthread_t tid[64];
   int current = 0;
   int fifo_fd;
+  int recycle = 1;
 
   while ((fifo_fd = open(GENERATE_FIFO, O_RDONLY)) == -1){
     if(errno == ENOENT || errno == ENXIO){
@@ -79,8 +82,7 @@ void* requestHandler(void* arg){
       exit(-1);
     }
   }
-
-  while(1){
+  while(recycle){
     Request* r = malloc(sizeof(Request));
 
     //Handles a new request.
@@ -108,10 +110,15 @@ void* requestHandler(void* arg){
         LOG_FILE = fopen(LOG_MSG_PATH, "a"); //Opens log file.
         fprintf(LOG_FILE, "%4.2f - %4d - %15lu - %2d - %c - %5d - %8s\n", elapsed, getpid(), pthread_self(), r->id, r->gender, r->duration, tip[1]);
         fclose(LOG_FILE); //Closes log file.
-
       }
     }
+      else {
+        printf("changing recycle variable\n");
+        recycle = 0;
+      }
   }
+  printf("CLOSED\n");
+  close(REJECTED_FD);
 
   //Waits for the ending of every ticket.
   for(int i = 0; i < sizeof(tid) / sizeof(pthread_t); i++){

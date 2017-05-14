@@ -84,6 +84,7 @@ void* rejectedListener(void* arg){
     sleep(1);
   }
 
+  //fcntl(fifo_fd, F_SETFL, O_NONBLOCK);
   while(read(fifo_fd, r, sizeof(Request)) != 0){
     printf("REJECTED PIPE\nID: %d\nGender: %c\nDuration: %d\nDenials: %d\n", r->id, r->gender, r->duration, r->denials);
 
@@ -110,6 +111,8 @@ void* rejectedListener(void* arg){
     sleep(1); //Tries to enter every second.
   }
   free(r);
+  printf("free\n");
+
   return NULL;
 
 }
@@ -138,17 +141,19 @@ int main(int argc, char* argv[]){
 
   //Creates every thread.
   pthread_t gen_tid, rej_tid;
-  
+
   pthread_create(&gen_tid, NULL, requestsThread, (void*) &requests);
   pthread_create(&rej_tid, NULL, rejectedListener, NULL);
-  /*
+
+  pthread_join(gen_tid, NULL);
+  pthread_join(rej_tid, NULL);
+
   printf("--------: FINAL GENERATOR.C STATS :--------\n");
   printf("Generated: TOTAL (%d), MALE (%d), FEMALE (%d)\n", GENERATED_M + GENERATED_F, GENERATED_M, GENERATED_F);
   printf("Rejected: TOTAL (%d), MALE (%d), FEMALE (%d)\n", REJECTED_M + REJECTED_F, REJECTED_M, REJECTED_F);
   printf("Discarded: TOTAL (%d), MALE (%d), FEMALE (%d)\n", DISCARDED_M + DISCARDED_F, DISCARDED_M, DISCARDED_F);
-  */
-  pthread_join(gen_tid, NULL);
-  pthread_join(rej_tid, NULL);
+
+
 
   unlink(GENERATE_FIFO); //This should probably be an exit handler.
 
