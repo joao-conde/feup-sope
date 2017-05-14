@@ -10,8 +10,8 @@
 #include <string.h>
 
 int ID = 1;
-int MAX_DURATION;
-int GENERATED_M, GENERATED_F, REJECTED_M, REJECTED_F, DISCARDED_M, DISCARDED_F;
+int MAX_DURATION, REQUESTS;
+int GENERATED_M = 0, GENERATED_F = 0, REJECTED_M = 0, REJECTED_F = 0, DISCARDED_M = 0, DISCARDED_F = 0;
 
 //FIFO and log files & descriptors
 char* GENERATE_FIFO = "/tmp/entrada";
@@ -33,7 +33,6 @@ typedef struct{
 
 /* REQUEST GENERATOR THREAD */
 void* requestsThread(void* arg){
-  int requests = *(int*) arg;
 
   //Creates the generate pipe.
   if(mkfifo(GENERATE_FIFO, S_IRUSR | S_IWUSR) != 0 && errno != EEXIST){
@@ -49,8 +48,11 @@ void* requestsThread(void* arg){
     }
   }
 
+  //Sends amount of requests to read.
+  write(GENERATE_FD, &REQUESTS, sizeof(int));
+
   //Generates 'requests' number of random requests.
-  for (int i = 0; i < requests; i++){
+  for (int i = 0; i < REQUESTS; i++){
     Request* request = malloc(sizeof(Request));
 
     request->id = ID++;
@@ -58,7 +60,8 @@ void* requestsThread(void* arg){
     request->duration = rand() % MAX_DURATION + 1;
     request->denials = 0;
 
-    //printf("GENERATED STRUCT\nID:%d\nGENDER:%s\nDUR:%d\nDENIALS:%d\n", request->id, &(request->gender), request->duration, request->denials);
+    if (request->gender == 'M') GENERATED_M++;
+    else GENERATED_F++;
 
     //Logs the operation.
     gettimeofday(&stop, NULL);
@@ -69,6 +72,7 @@ void* requestsThread(void* arg){
     fclose(LOG_FILE); //Closes log file.
 
     write(GENERATE_FD, request, sizeof(Request));
+
     free(request);
   }
 
@@ -84,9 +88,7 @@ void* rejectedListener(void* arg){
     sleep(1);
   }
 
-  //fcntl(fifo_fd, F_SETFL, O_NONBLOCK);
   while(read(fifo_fd, r, sizeof(Request)) != 0){
-    printf("REJECTED PIPE\nID: %d\nGender: %c\nDuration: %d\nDenials: %d\n", r->id, r->gender, r->duration, r->denials);
 
     gettimeofday(&stop, NULL);
     float elapsed = (float) ((float) stop.tv_usec - start.tv_usec) / 1000;
@@ -94,6 +96,9 @@ void* rejectedListener(void* arg){
     LOG_FILE = fopen(LOG_MSG_PATH, "a"); //Opens log file.
     fprintf(LOG_FILE, "%4.2f - %4d - %2d - %c - %5d - %9s\n", elapsed, getpid(), r->id, r->gender, r->duration, tip[1]);
     fclose(LOG_FILE); //Closes log file.
+
+    if (r->gender == 'M') REJECTED_M++;
+    else REJECTED_F++;
 
     if (r->denials < 3){
       write(GENERATE_FD, r, sizeof(*r));
@@ -111,10 +116,8 @@ void* rejectedListener(void* arg){
     sleep(1); //Tries to enter every second.
   }
   free(r);
-  printf("free\n");
 
   return NULL;
-
 }
 
 int main(int argc, char* argv[]){
@@ -129,7 +132,7 @@ int main(int argc, char* argv[]){
     printf("Wrong number of arguments. USAGE: program_name <number of requests> <max duration>\n");
     exit(-1);
   }
-  int requests = atoi(argv[1]);
+  REQUESTS = atoi(argv[1]);
   MAX_DURATION = atoi(argv[2]);
 
   //Creates registry messages path.
@@ -142,20 +145,19 @@ int main(int argc, char* argv[]){
   //Creates every thread.
   pthread_t gen_tid, rej_tid;
 
-  pthread_create(&gen_tid, NULL, requestsThread, (void*) &requests);
+  pthread_create(&gen_tid, NULL, requestsThread, NULL);
   pthread_create(&rej_tid, NULL, rejectedListener, NULL);
 
   pthread_join(gen_tid, NULL);
   pthread_join(rej_tid, NULL);
 
-  printf("--------: FINAL GENERATOR.C STATS :--------\n");
+  printf("\n------------------[ FINAL GERADOR STATS ]------------------\n\n");
   printf("Generated: TOTAL (%d), MALE (%d), FEMALE (%d)\n", GENERATED_M + GENERATED_F, GENERATED_M, GENERATED_F);
   printf("Rejected: TOTAL (%d), MALE (%d), FEMALE (%d)\n", REJECTED_M + REJECTED_F, REJECTED_M, REJECTED_F);
-  printf("Discarded: TOTAL (%d), MALE (%d), FEMALE (%d)\n", DISCARDED_M + DISCARDED_F, DISCARDED_M, DISCARDED_F);
+  printf("Discarded: TOTAL (%d), MALE (%d), FEMALE (%d)\n\n", DISCARDED_M + DISCARDED_F, DISCARDED_M, DISCARDED_F);
+  printf("-----------------------------------------------------------\n\n");
 
-
-
-  unlink(GENERATE_FIFO); //This should probably be an exit handler.
+  unlink(GENERATE_FIFO);
 
   pthread_exit(NULL);
 }
