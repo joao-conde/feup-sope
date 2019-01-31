@@ -1,4 +1,4 @@
-# PROJECT1: A multi-threaded 'sauna' management application
+# PROJECT2: A multi-threaded 'sauna' management application
 
 Multi-threaded application to simulate and manage a sauna with multiple clients of different genders arriving with different service times.
 
