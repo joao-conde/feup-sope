@@ -9,6 +9,6 @@ The first project consisted on implementing our own simplified version of the Un
 This was achieved in a recursive way with the creation of multiple child processes.
 
 
-## Project2 :
+## Project 2: A multi-threaded 'sauna' management application
 
-The second project consisted on a multi-threaded application to simulate and manage the management of a sauna.
+The second project consisted on a multi-threaded application to simulate and manage a sauna with multiple clients of different genders arriving with different service times.

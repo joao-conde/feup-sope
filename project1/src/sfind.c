@@ -50,6 +50,17 @@ void subscribe_SIGINT(){
 
 }
 
+
+void printUsage(){
+  printf("\nSearches on current path (pwd). Specify one or more of the following flags:\n");
+  printf("\t-name <FILE/FOLDER_NAME>\n");
+  printf("\t-type <f/d>\n");
+  printf("\t-perm <OCTAL_CODE>\n");
+  printf("\t-print <1/0>\n");
+  printf("\t-delete <1/0>\n");
+}
+
+
 void processArgs(int argc, char* argv[]){
 
   flags.name = "";
@@ -129,6 +140,7 @@ int main(int argc, char* argv[]){
 
   char* path = getcwd(NULL, 256); //Saves the current path.
 
+  printUsage();
   processArgs(argc,argv);
 
   printf("initial path: %s\n\n", path);
