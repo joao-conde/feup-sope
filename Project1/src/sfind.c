@@ -16,7 +16,6 @@ struct Flags{
   int mode;
   int print;
   int delete;
-  //TODO: -exec command.
 } flags;
 
 void sigint_handler(int signo){
@@ -28,12 +27,10 @@ void sigint_handler(int signo){
   printf("\n> DO YOU WISH TO TERMINATE?\n");
   scanf("%s",&terminate);
 
-  //kill(getpid(),SIGSTOP);
   terminate = (char)toupper(terminate);
 
   if(terminate == 'N'){
     kill(getppid(),SIGCONT);
-    //kill(getpid(),SIGCONT);
   }
   else{
     kill(getppid(),SIGQUIT);
@@ -80,7 +77,6 @@ void searchDir(char* path){
 
   subscribe_SIGINT(); //Ctrl+C interruption
   sleep(4);
-  //uncomment to test CTR C
 
   if (stat(path,&fileStatus) != 0) printf("stat error\n");
 
@@ -121,16 +117,11 @@ void searchDir(char* path){
           case 0: //child process
             searchDir(newPath);
             break;
-
-          /*default:
-              waitpid(pid,NULL,WNOHANG);*/
-
         }
       }
     }
     closedir(dp);
   }
-  //  process dir (call searchDir again lulz)
 }
 
 
@@ -142,18 +133,6 @@ int main(int argc, char* argv[]){
 
   printf("initial path: %s\n\n", path);
   searchDir(path);
-
-
-
-  //test if variables are correct
-  /*
-  printf("path: %s\n", buffer);
-  printf("Name argument: %s\n", flags.name);
-
-  printf("Type argument: %s\n", flags.type);
-
-  printf("Perm argument: %o\n", flags.mode);
-  */
 
   return 0;
 }
